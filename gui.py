@@ -1,5 +1,10 @@
 #!/usr/bin/python3.9
 from tkinter import *
+import matplotlib
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
+import matplotlib.animation as animation
+matplotlib.use("TkAgg")
 
 
 class Gui:
@@ -12,13 +17,13 @@ class Gui:
         self.root_widget = Tk()
         self.root_widget.title("Quadcopter Visualizer")
         self.root_widget.geometry("1536x1024")
-        self.root_widget.rowconfigure(1, weight=0)
-        self.root_widget.rowconfigure(1, weight=5)
-        self.root_widget.rowconfigure(2, weight=1)
+        self.root_widget.rowconfigure(0, weight=0)
+        self.root_widget.rowconfigure(1, weight=2)
+        self.root_widget.rowconfigure(2, weight=2)
         self.root_widget.columnconfigure(0, weight=1)
         self.root_widget.columnconfigure(1, weight=0)
         self.root_widget.columnconfigure(2, weight=0)
-        self.root_widget.columnconfigure(3, weight=5)
+        self.root_widget.columnconfigure(3, weight=10)
 
         # Setup the serial port 'frame' (not really a frame)
         self.serial_port = "None"
@@ -40,6 +45,7 @@ class Gui:
 
     # Refresh the gui
     def update(self):
+        self.graph_frame.graph_refresh()
         self.root_widget.update_idletasks()
         self.root_widget.update()
 
@@ -81,7 +87,8 @@ class Gui:
             # Create the text box and scroll bar for the raw debug window.
             self.scrollbar_debug_window = Scrollbar(self.frame_debug, width=20)
             self.scrollbar_debug_window.grid(row=1, column=0, sticky=W + S + N, ipadx=0)
-            self.text_debug_window = Text(self.frame_debug, state=DISABLED, yscrollcommand=self.scrollbar_debug_window.set)
+            self.text_debug_window = Text(self.frame_debug, state=DISABLED,
+                                          yscrollcommand=self.scrollbar_debug_window.set)
             self.text_debug_window.grid(row=1, column=1, sticky=N + S + E + W)
             self.scrollbar_debug_window.config(command=self.text_debug_window.yview)
 
@@ -110,10 +117,59 @@ class Gui:
             self.label_title = Label(self.frame_visualisation, text="3D Visualisation")
             self.label_title.grid(row=0, column=0)
 
+    # Add data to the plot
+    def graph_data(self, data, element):
+        self.graph_frame.accel_data[element].append(data)
+
     class GraphFrame:
+        ACCEL_TIME = 0
+        ACCEL_X = 1
+        ACCEL_Y = 2
+        ACCEL_Z = 3
+        accel_data = [[0], [0], [0], [0]]
+
+        x_lim = [0, 30000]
+
         def __init__(self, parent_widget):
             # Create Graphing frame
             self.frame_graph = LabelFrame(parent_widget)
             self.frame_graph.grid(row=2, column=3, sticky=N + W + S + E)
             self.label_title = Label(self.frame_graph, text="Graphs")
             self.label_title.grid(row=0, column=0)
+
+            # Create roll angle graph
+            self.figure_graph = Figure(figsize=(4, 4))
+            self.graph = self.figure_graph.add_subplot(1, 1, 1)
+            self.graph.set_title("Acceleration")
+            self.graph.set_xlim(self.x_lim)
+            self.graph.set_ylim([-2000, 2000])
+            self.graph.plot(0, 0, color="red", label="X")
+            self.graph.plot(0, 0, color="green", label="Y")
+            self.graph.plot(0, 0, color="blue", label="Z")
+            self.graph.legend(loc="upper left")
+
+            # Draw roll angle graph
+            self.canvas_graph = FigureCanvasTkAgg(self.figure_graph, self.frame_graph)
+            self.canvas_graph.get_tk_widget().grid(row=1, column=0, sticky=N+S+W)
+            self.canvas_graph.draw()
+
+        # Update the graph. If the plot nears the edge, shift the range
+        def graph_refresh(self):
+            if self.accel_data[self.ACCEL_TIME][-1] >= self.x_lim[1]:
+                self.x_lim[0] += 10000
+                self.x_lim[1] += 10000
+                self.graph.set_xlim(self.x_lim)
+
+            limit = min(len(self.accel_data[0]), len(self.accel_data[1]),
+                        len(self.accel_data[2]), len(self.accel_data[3]))
+
+            self.graph.plot(self.accel_data[self.ACCEL_TIME][:limit],
+                            self.accel_data[self.ACCEL_X][:limit], color="red")
+            self.graph.plot(self.accel_data[self.ACCEL_TIME][:limit],
+                            self.accel_data[self.ACCEL_Y][:limit], color="green")
+            self.graph.plot(self.accel_data[self.ACCEL_TIME][:limit],
+                            self.accel_data[self.ACCEL_Z][:limit], color="blue")
+
+            self.accel_data = [[self.accel_data[self.ACCEL_TIME][-1]], [self.accel_data[self.ACCEL_X][-1]],
+                               [self.accel_data[self.ACCEL_Y][-1]], [self.accel_data[self.ACCEL_Z][-1]]]
+            self.canvas_graph.draw()
