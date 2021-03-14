@@ -1,15 +1,9 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file './qtdesigner-workspace/quadcopter-visualizer.ui'
-#
-# Created by: PyQt5 UI code generator 5.14.1
-#
-# WARNING! All changes made in this file will be lost!
-
 import sys
 import os
-import pyqtgraph
-from PyQt5 import QtCore, QtGui, QtWidgets, QtSerialPort
+from PyQt5 import QtCore, QtWidgets, QtSerialPort
+import pyqtgraph as pg
+
+from frame import *
 
 
 ########################################################################################################################
@@ -86,37 +80,56 @@ class Window(QtWidgets.QMainWindow):
 
     def parse_serial_data(self):
         while self.serial.canReadLine():
-            string = bytes(self.serial.readLine()).translate(None, b"\x00\r").decode("utf-8")
+            string = bytes(self.serial.readLine()).decode("ascii")
             self.main_widget.terminal_frame.write_to_screen(string)
+
+            # if string.count("flight controller - start") > 0:
+            #     for key in self.main_widget.data_frame.accel_data.keys():
+            #         self.main_widget.data_frame.accel_data[key] = [0]
+            #     for key in self.main_widget.data_frame.gyro_data.keys():
+            #         self.main_widget.data_frame.gyro_data[key] = [0]
 
             if string.count("DATA:TIME:") > 0:
                 data = string[len("DATA:TIME:"):-len("\n")]
-                self.main_widget.data_frame.accel_data["ACCEL_TIME"].append(int(data))
-                self.main_widget.data_frame.gyro_data["GYRO_TIME"].append(int(data))
+                self.main_widget.data_frame.accel_data.timestamp.append(int(data))
+                self.main_widget.data_frame.gyro_data.timestamp.append(int(data))
+                self.main_widget.data_frame.orientation_data.timestamp.append(int(data))
 
-            if string.count("DATA:ACCELX:") > 0:
+            elif string.count("DATA:KBANK:") > 0:
+                data = string[len("DATA:KBANK:"):-len("\n")]
+                self.main_widget.data_frame.orientation_data.fields["Bank"].append(int(data))
+
+            elif string.count("DATA:KATTITUDE:") > 0:
+                data = string[len("DATA:KATTITUDE:"):-len("\n")]
+                self.main_widget.data_frame.orientation_data.fields["Attitude"].append(int(data))
+
+            elif string.count("DATA:KHEADING:") > 0:
+                data = string[len("DATA:KHEADING:"):-len("\n")]
+                self.main_widget.data_frame.orientation_data.fields["Heading"].append(int(data))
+
+            elif string.count("DATA:ACCELX:") > 0:
                 data = string[len("DATA:ACCELX:"):-len("\n")]
-                self.main_widget.data_frame.accel_data["ACCEL_X"].append(int(data))
+                self.main_widget.data_frame.accel_data.fields["X"].append(int(data))
 
-            if string.count("DATA:ACCELY:") > 0:
+            elif string.count("DATA:ACCELY:") > 0:
                 data = string[len("DATA:ACCELY:"):-len("\n")]
-                self.main_widget.data_frame.accel_data["ACCEL_Y"].append(int(data))
+                self.main_widget.data_frame.accel_data.fields["Y"].append(int(data))
 
-            if string.count("DATA:ACCELZ:") > 0:
+            elif string.count("DATA:ACCELZ:") > 0:
                 data = string[len("DATA:ACCELZ:"):-len("\n")]
-                self.main_widget.data_frame.accel_data["ACCEL_Z"].append(int(data))
+                self.main_widget.data_frame.accel_data.fields["Z"].append(int(data))
 
-            if string.count("DATA:GYROX:") > 0:
-                data = string[len("DATA:GYROX:"):-len("\n")]
-                self.main_widget.data_frame.gyro_data["GYRO_ROLL"].append(int(data))
+            elif string.count("DATA:GYROROLL:") > 0:
+                data = string[len("DATA:GYROROLL:"):-len("\n")]
+                self.main_widget.data_frame.gyro_data.fields["Roll"].append(int(data))
 
-            if string.count("DATA:GYROY:") > 0:
-                data = string[len("DATA:GYROY:"):-len("\n")]
-                self.main_widget.data_frame.gyro_data["GYRO_PITCH"].append(int(data))
+            elif string.count("DATA:GYROPITCH:") > 0:
+                data = string[len("DATA:GYROPITCH:"):-len("\n")]
+                self.main_widget.data_frame.gyro_data.fields["Pitch"].append(int(data))
 
-            if string.count("DATA:GYROZ:") > 0:
-                data = string[len("DATA:GYROZ:"):-len("\n")]
-                self.main_widget.data_frame.gyro_data["GYRO_YAW"].append(int(data))
+            elif string.count("DATA:GYROYAW:") > 0:
+                data = string[len("DATA:GYROYAW:"):-len("\n")]
+                self.main_widget.data_frame.gyro_data.fields["Yaw"].append(int(data))
 
 
 ########################################################################################################################
@@ -139,121 +152,7 @@ class MainWidget(QtWidgets.QWidget):
         self.layout.setRowStretch(1, 3)
         self.layout.setRowStretch(2, 2)
         self.layout.setColumnStretch(0, 2)
-        self.layout.setColumnStretch(1, 3)
-
-
-########################################################################################################################
-class TemplateFrame(QtWidgets.QFrame):
-    def __init__(self, parent):
-        super(TemplateFrame, self).__init__(parent)
-        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.setFrameShadow(QtWidgets.QFrame.Raised)
-        self.layout = QtWidgets.QGridLayout(self)
-
-        # Add the frames title
-        self.title = QtWidgets.QLabel(self)
-        self.title.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
-        self.layout.addWidget(self.title, 0, 1, 1, 1)
-
-
-########################################################################################################################
-class InstrumentFrame(TemplateFrame):
-    def __init__(self, parent):
-        super(InstrumentFrame, self).__init__(parent)
-        self.title.setText("Instruments")
-
-
-########################################################################################################################
-class TerminalFrame(TemplateFrame):
-    def __init__(self, parent):
-        super(TerminalFrame, self).__init__(parent)
-        self.title.setText("Terminal")
-
-        # Add the terminal screen
-        self.screen = QtWidgets.QTextBrowser(self)
-        self.layout.addWidget(self.screen, 1, 1, 1, 1)
-
-    def write_to_screen(self, string):
-        self.screen.append(string)
-
-
-########################################################################################################################
-class ErrorFrame(TemplateFrame):
-    def __init__(self, parent):
-        super(ErrorFrame, self).__init__(parent)
-        self.title.setText("Errors")
-
-        # Add the error screen
-        self.screen = QtWidgets.QTextBrowser(self)
-        self.layout.addWidget(self.screen, 1, 1, 1, 2)
-
-
-########################################################################################################################
-class DataFrame(TemplateFrame):
-    def __init__(self, parent):
-        super(DataFrame, self).__init__(parent)
-        self.title.setText("Data")
-
-        # Create a graph widget
-        self.graph_window = pyqtgraph.GraphicsWindow()
-        self.layout.addWidget(self.graph_window, 1, 1, 1, 1)
-
-        # Create the separate graphs and set the initial view area
-        self.accel_graph = self.graph_window.addPlot()
-        self.accel_graph.setXRange(0, 60000)
-        self.accel_graph.setYRange(-2000, 2000)
-        self.graph_window.nextCol()
-        self.gyro_graph = self.graph_window.addPlot()
-        self.gyro_graph.setXRange(0, 60000)
-        self.gyro_graph.setYRange(-500, 500)
-
-        # Create the curves for each graph
-        self.accel_x_curve = self.accel_graph.plot(pen=pyqtgraph.mkPen("r"))
-        self.accel_y_curve = self.accel_graph.plot(pen=pyqtgraph.mkPen("g"))
-        self.accel_z_curve = self.accel_graph.plot(pen=pyqtgraph.mkPen("b"))
-
-        self.gyro_roll_curve = self.gyro_graph.plot(pen=pyqtgraph.mkPen("r"))
-        self.gyro_pitch_curve = self.gyro_graph.plot(pen=pyqtgraph.mkPen("g"))
-        self.gyro_yaw_curve = self.gyro_graph.plot(pen=pyqtgraph.mkPen("b"))
-
-        # Initialise data sets for each graph
-        self.accel_data = {
-            "ACCEL_TIME": [0],
-            "ACCEL_X": [0],
-            "ACCEL_Y": [0],
-            "ACCEL_Z": [0],
-        }
-        self.gyro_data = {
-            "GYRO_TIME": [0],
-            "GYRO_ROLL": [0],
-            "GYRO_PITCH": [0],
-            "GYRO_YAW": [0],
-        }
-
-        self.graph_timer = QtCore.QTimer()
-        self.graph_timer.timeout.connect(self.update_accel_graph)
-        self.graph_timer.timeout.connect(self.update_gyro_graph)
-        self.graph_timer.start(100)
-
-    def update_accel_graph(self):
-        limit = min(len(self.accel_data["ACCEL_TIME"]), len(self.accel_data["ACCEL_X"]),
-                    len(self.accel_data["ACCEL_Y"]), len(self.accel_data["ACCEL_Z"]))
-        self.accel_x_curve.setData(self.accel_data["ACCEL_TIME"][:limit], self.accel_data["ACCEL_X"][:limit])
-        self.accel_y_curve.setData(self.accel_data["ACCEL_TIME"][:limit], self.accel_data["ACCEL_Y"][:limit])
-        self.accel_z_curve.setData(self.accel_data["ACCEL_TIME"][:limit], self.accel_data["ACCEL_Z"][:limit])
-
-        self.accel_graph.setXRange(self.accel_data["ACCEL_TIME"][-1] - 30000,
-                                   self.accel_data["ACCEL_TIME"][-1] + 30000)
-
-    def update_gyro_graph(self):
-        limit = min(len(self.gyro_data["GYRO_TIME"]), len(self.gyro_data["GYRO_ROLL"]),
-                    len(self.gyro_data["GYRO_PITCH"]), len(self.gyro_data["GYRO_YAW"]))
-        self.gyro_roll_curve.setData(self.gyro_data["GYRO_TIME"][:limit], self.gyro_data["GYRO_ROLL"][:limit])
-        self.gyro_pitch_curve.setData(self.gyro_data["GYRO_TIME"][:limit], self.gyro_data["GYRO_PITCH"][:limit])
-        self.gyro_yaw_curve.setData(self.gyro_data["GYRO_TIME"][:limit], self.gyro_data["GYRO_YAW"][:limit])
-
-        self.gyro_graph.setXRange(self.gyro_data["GYRO_TIME"][-1] - 30000,
-                                  self.gyro_data["GYRO_TIME"][-1] + 30000)
+        self.layout.setColumnStretch(1, 5)
 
 
 ########################################################################################################################
