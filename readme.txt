@@ -1,0 +1,3 @@
+Dependancies:
+Pyqt5
+pyqtgraph
