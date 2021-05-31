@@ -2,56 +2,88 @@ import sys
 
 from PyQt5 import QtCore, QtWidgets, QtSerialPort
 
-from frame import *
-from menu import *
+from frame import DataFrame, ErrorFrame, TerminalFrame, InstrumentFrame
+from menu import MenuBar
 
 
 #
 # Main window. Everything is contained within this.
 #
 class Window(QtWidgets.QMainWindow):
+    """
+    Main window which inherits from QMainWindow. Everything is contained within this.
+
+    Attributes
+    ----------
+    menu_bar : MenuBar
+        Menu bar which will go at the top of the menu.
+
+    menu_bar_timer : QTimer
+        Timer to periodically call the refresh function of the menu bar.
+
+    main_widget : MainWidget
+        Main widget which will contain everything other than the menu bar.
+
+    serial : QSerialPort
+        Serial port from which to read and send data.
+
+    Methods
+    ----------
+
+    """
+
     def __init__(self):
         super(Window, self).__init__()
         # Configure the window properties: size and name
         self.setGeometry(50, 50, 1920, 1080)
         self.setWindowTitle("Quadcopter Visualizer")
 
-        # Add a menu bar for at the top of the window
-        self.menu_bar = MenuBar(self)
+        # Configure the menu bar at the top of the window
+        self.menu_bar = MenuBar()
         self.setMenuBar(self.menu_bar)
+        self.menu_bar.set_serial_callback(self.open_serial_port)
 
         # Setup periodic refreshing of the menu bar.
         self.menu_bar_timer = QtCore.QTimer()
         self.menu_bar_timer.timeout.connect(self.menu_bar.refresh)
-        self.menu_bar_timer.setInterval(1000)
+        self.menu_bar_timer.setInterval(100)
         self.menu_bar_timer.start()
 
-        # self.serial = QtSerialPort.QSerialPort()
+        self.serial = QtSerialPort.QSerialPort()
 
         # Setup the main widget and start the GUI.
         self.main_widget = MainWidget(self)
         self.setCentralWidget(self.main_widget)
         self.show()
 
-    #
-    #
-    #
-    def initialise_serial(self, port_name):
+    def open_serial_port(self, port: str):
+        """
+        Open a new serial port. Close any port currently open.
+
+        Parameters
+        ----------
+        port : str
+            Name of the port to open.
+
+        """
+
         if self.serial.isOpen() is True:
             self.serial.close()
 
-        self.serial.setPortName(port_name)
+        self.serial.setPortName(port)
+
         self.serial.setBaudRate(115200)
-        self.serial.readyRead.connect(self.parse_serial_data)
+        self.serial.readyRead.connect(self.parse_serial)
         self.serial.open(QtCore.QIODevice.OpenModeFlag.ReadWrite)
 
-    #
-    #
-    #
-    def parse_serial_data(self):
+    def parse_serial(self):
+        """
+
+        """
+
         while self.serial.canReadLine():
             string = bytes(self.serial.readLine()).decode("ascii")
-            self.main_widget.terminal_frame.write_to_screen(string)
+            self.main_widget.terminal_frame.write(string)
 
             # if string.count("flight controller - start") > 0:
             #     for key in self.main_widget.data_frame.accel_data.keys():
@@ -120,7 +152,7 @@ class Window(QtWidgets.QMainWindow):
 class MainWidget(QtWidgets.QWidget):
     def __init__(self, parent):
         super(MainWidget, self).__init__(parent)
-        self.layout = QtWidgets.QGridLayout(self)
+        self.grid = QtWidgets.QGridLayout(self)
 
         # Create the 4 frames: terminal, error, data, instrument. Add them to their respective quadrants
         self.instrument_frame = InstrumentFrame(self)
@@ -128,15 +160,15 @@ class MainWidget(QtWidgets.QWidget):
         self.error_frame = ErrorFrame(self)
         self.data_frame = DataFrame(self)
 
-        self.layout.addWidget(self.instrument_frame, 1, 1, 1, 1)
-        self.layout.addWidget(self.terminal_frame, 1, 0, 1, 1)
-        self.layout.addWidget(self.error_frame, 2, 0, 1, 1)
-        self.layout.addWidget(self.data_frame, 2, 1, 1, 1)
+        self.grid.addWidget(self.instrument_frame, 1, 1, 1, 1)
+        self.grid.addWidget(self.terminal_frame, 1, 0, 1, 1)
+        self.grid.addWidget(self.error_frame, 2, 0, 1, 1)
+        self.grid.addWidget(self.data_frame, 2, 1, 1, 1)
 
-        self.layout.setRowStretch(1, 3)
-        self.layout.setRowStretch(2, 2)
-        self.layout.setColumnStretch(0, 2)
-        self.layout.setColumnStretch(1, 5)
+        self.grid.setRowStretch(1, 3)
+        self.grid.setRowStretch(2, 2)
+        self.grid.setColumnStretch(0, 2)
+        self.grid.setColumnStretch(1, 5)
 
 
 ########################################################################################################################

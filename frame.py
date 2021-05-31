@@ -8,12 +8,12 @@ class TemplateFrame(QtWidgets.QFrame):
         super(TemplateFrame, self).__init__(parent)
         self.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.setFrameShadow(QtWidgets.QFrame.Raised)
-        self.layout = QtWidgets.QGridLayout(self)
+        self.grid = QtWidgets.QGridLayout(self)
 
         # Add the frames title
         self.title = QtWidgets.QLabel(self)
         self.title.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
-        self.layout.addWidget(self.title, 0, 1, 1, 1)
+        self.grid.addWidget(self.title, 0, 1, 1, 1)
 
 
 ########################################################################################################################
@@ -30,11 +30,11 @@ class TerminalFrame(TemplateFrame):
         self.title.setText("Terminal")
 
         # Add the terminal screen
-        self.screen = QtWidgets.QTextBrowser(self)
-        self.layout.addWidget(self.screen, 1, 1, 1, 1)
+        self.text_box = QtWidgets.QTextBrowser(self)
+        self.grid.addWidget(self.text_box, 1, 1, 1, 1)
 
-    def write_to_screen(self, string):
-        self.screen.append(string)
+    def write(self, string):
+        self.text_box.append(string)
 
 
 ########################################################################################################################
@@ -44,8 +44,8 @@ class ErrorFrame(TemplateFrame):
         self.title.setText("Errors")
 
         # Add the error screen
-        self.screen = QtWidgets.QTextBrowser(self)
-        self.layout.addWidget(self.screen, 1, 1, 1, 2)
+        self.text_box = QtWidgets.QTextBrowser(self)
+        self.grid.addWidget(self.text_box, 1, 1, 1, 2)
 
 
 ########################################################################################################################
@@ -66,7 +66,7 @@ class DataFrame(TemplateFrame):
 
         # Create a graph widget
         self.graph_widget = pg.GraphicsLayoutWidget()
-        self.layout.addWidget(self.graph_widget, 1, 1, 1, 1)
+        self.grid.addWidget(self.graph_widget, 1, 1, 1, 1)
 
         # Create plots
         self.accel_plot = DataPlot(self.accel_data)
